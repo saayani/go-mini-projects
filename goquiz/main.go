@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
 	csvFilename := flag.String("csv", "problems.csv", "A csv file in the format of question, answer.")
-	fmt.Println("vim-go")
 	flag.Parse()
 	file, err := os.Open(*csvFilename) // csvFilename is a pointer to a string
 	if err != nil {
@@ -24,18 +24,30 @@ func main() {
 	}
 	problems := parseLines(lines)
 	fmt.Println(problems)
+	timeLimit := flag.Int("limit", 5, "the time limit for the quiz in seconds")
+	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
 
 	counter := 0
 	for i, problem := range problems {
 		fmt.Println("Problem #%d: %d = ", i+1, problem.q)
-		var answer string
-		fmt.Scanf("%s\n", &answer) // Reference to answer, to have a pointer value, to access it with the variable whenever the value is set
-		if answer == problem.a {
-			counter++
-			//fmt.Println("Correct!")
+		answerCh := make(chan string)
+		go func() {
+			var answer string
+			fmt.Scanf("%s\n", &answer) // Reference to answer, to have a pointer value, to access it with the variable whenever the value is set
+			// Use a closure to use data defined outside
+			answerCh <- answer
+		}()
+		select {
+		case <-timer.C:
+			fmt.Println("Your score is: %d out of %d", counter, len(problems))
+			return
+		case answer := <-answerCh:
+			if answer == problem.a {
+				counter++
+				fmt.Println("Correct!")
+			}
 		}
 	}
-	fmt.Println("Your score is: %d out of %d", counter, len(problems))
 }
 
 type problem struct {
